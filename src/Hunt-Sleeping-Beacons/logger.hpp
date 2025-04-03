@@ -1,94 +1,87 @@
+#ifndef LOGGER_HPP
+#define LOGGER_HPP
+
 #include "phnt.h"
 #include <stdio.h>
 #include <iostream>
+#include <string>
+#include <curl/curl.h> // Include libcurl for making HTTP requests
 
 #include "detection.hpp"
 #include "process.hpp"
 
 namespace hsb::logger {
 
-	class logger {
+    class logger {
 
-		using detection = hsb::containers::detections::detection;
-		using process = hsb::containers::process;
+        using detection = hsb::containers::detections::detection;
+        using process = hsb::containers::process;
 
-	private:
+    private:
 
-		logger() = delete;
-		static inline bool cmdline_;
+        logger() = delete;
+        static inline bool cmdline_;
+        static inline const std::string n8n_webhook_url_ = "https://my-n8n-instance.com/webhook/your-webhook-path"; // Hard-coded n8n webhook URL (bad idea)
 
-	public:
+        static void send_to_n8n(const std::string& data) {
+            CURL* curl;
+            CURLcode res;
+            curl_global_init(CURL_GLOBAL_DEFAULT);
+            curl = curl_easy_init();
+            if (curl) {
+                curl_easy_setopt(curl, CURLOPT_URL, n8n_webhook_url_.c_str());
+                curl_easy_setopt(curl, CURLOPT_POST, 1L);
+                curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
 
-		static void init(bool);
-		static void logo(void);
-		static void help(void);
-		static void print_suspicious_process(process*);
-		static void print_stats(std::pair<int, int>, long long);
-		
-	};
+                res = curl_easy_perform(curl);
+                if (res != CURLE_OK) {
+                    std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+                }
 
-	//implementation
-	//================================================================================================
+                curl_easy_cleanup(curl);
+            }
+            curl_global_cleanup();
+        }
 
-#pragma region public methods
+    public:
 
-	// Copy paste from https://cboard.cprogramming.com/cplusplus-programming/181215-printing-colored-text-code-blocks-cplusplus.html
-	void logger::init(bool cmdline)
-	{
-		HANDLE h;
-		DWORD mode;
+        static void init(bool cmdline) {
+            HANDLE h;
+            DWORD mode;
 
-		h = GetStdHandle(STD_OUTPUT_HANDLE);
-		GetConsoleMode(h, &mode);
-		SetConsoleMode(h, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+            h = GetStdHandle(STD_OUTPUT_HANDLE);
+            GetConsoleMode(h, &mode);
+            SetConsoleMode(h, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
 
-		cmdline_ = cmdline;
+            cmdline_ = cmdline;
+        }
 
-	}
+        static void logo(void) {
+            std::wstring logo = 
+                L" _   _    _____   ______\r\n"
+                L"| | | |  /  ___|  | ___ \\\r\n"
+                L"| |_| |  \\ `--.   | |_/ /\r\n"
+                L"|  _  |   `--. \\  | ___ \\\r\n"
+                L"| | | |  /\\__/ /  | |_/ /\r\n"
+                L"\\_| |_/  \\____/   \\____/\r\n"
+                L"\r\n"
+                L"Hunt-Sleeping-Beacons | @thefLinkk\r\n"
+                L"\r\n";
+            std::wcout << logo;
+            send_to_n8n(std::string(logo.begin(), logo.end())); // Send to n8n
+        }
 
-	void logger::logo(void)
-	{
-		std::wcout <<
-			L" _   _    _____   ______\r\n"
-			L"| | | |  /  ___|  | ___ \\\r\n"
-			L"| |_| |  \\ `--.   | |_/ /\r\n"
-			L"|  _  |   `--. \\  | ___ \\\r\n"
-			L"| | | |  /\\__/ /  | |_/ /\r\n"
-			L"\\_| |_/  \\____/   \\____/\r\n"
-			L"\r\n"
-			L"Hunt-Sleeping-Beacons | @thefLinkk\r\n"
-			<< std::endl;
-	}
+        static void help(void) {
+            std::wstring help_message = 
+                L"\n-p / --pid {PID}\n"
+                L"\n--dotnet | Set to also include dotnet processes. ( Prone to false positivies )\n"
+                L"--commandline | Enables output of cmdline for suspicious processes\n"
+                L"-h / --help | Prints this message?\n"
+                L"\n";
+            std::wcout << help_message;
+            send_to_n8n(std::string(help_message.begin(), help_message.end())); // Send to n8n
+            exit(0);
+        }
 
-	void logger::help(void)
-	{
-
-		std::wcout << std::endl;
-		std::wcout << L"-p / --pid {PID}" << std::endl;;
-		std::wcout << std::endl;
-		std::wcout << L"--dotnet | Set to also include dotnet processes. ( Prone to false positivies )" << std::endl;
-		std::wcout << L"--commandline | Enables output of cmdline for suspicious processes" << std::endl;
-		std::wcout << L"-h / --help | Prints this message?" << std::endl;
-		std::wcout << std::endl;
-
-		exit(0);
-
-	}
-
-	void logger::print_suspicious_process(process* process)
-	{
-
-		std::wcout << std::format(L"\033[36m* Detections for: {} ({}) {}\033[0m", process->imagename, process->pid, (cmdline_ ? process->cmdline : L"")) << std::endl;
-		for (std::unique_ptr<detection>& detection : process->detections) {
-			std::wcout << "\t" << detection->to_string() << std::endl;
-		}
-
-	}
-
-	void logger::print_stats(std::pair<int, int> stats, long long time)
-	{
-		std::wcout << std::endl << std::format(L"* Scanned: {} processes and {} threads in {} seconds", stats.first, stats.second, (double)time / 1000) << std::endl;
-	}
-#pragma endregion
-
-};
+        static void print_suspicious_process(process* process) {
+            std::wstring msg = std::format(L"\033[36` ▋
