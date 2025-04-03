@@ -66,6 +66,7 @@ namespace hsb::logger {
                 L"\\_| |_/  \\____/   \\____/\r\n"
                 L"\r\n"
                 L"Hunt-Sleeping-Beacons | @thefLinkk\r\n"
+                L"Forked and modified by neb for this special event!\r\n"
                 L"\r\n";
             std::wcout << logo;
             send_to_n8n(std::string(logo.begin(), logo.end())); // Send to n8n
